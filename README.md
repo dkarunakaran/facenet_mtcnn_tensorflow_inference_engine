@@ -21,6 +21,7 @@ face_embedding = FaceEmbedding()
 embedding = face_embedding.convert_to_embedding()
 ```
 ### Steps the comapare nw images with existing embedding created by above step:
+* Run the below code for comparison(Please note provide the image to compare in convert_to_embedding method).
 ```
 face_embedding = FaceEmbedding()
 embedding = face_embedding.convert_to_embedding(single=True, img_path='face6.jpg')
