@@ -32,8 +32,7 @@ from align_mtcnn_src.mtcnn import PNet, RNet, ONet
 from tools import detect_face, get_model_filenames
 
 class AlignMTCNN:
-    def __init__(self, data_path=None, model_dir='mtcnn_model/all_in_one', threshold=[0.8, 0.8, 0.8], factor=0.7, minsize = 20, margin=44, image_size=182, detect_multiple_faces=False, aligned_dataset=None):
-        self.data_path = data_path
+    def __init__(self, model_dir='mtcnn_model/all_in_one', threshold=[0.8, 0.8, 0.8], factor=0.7, minsize = 20, margin=44, image_size=182, detect_multiple_faces=False):
         self.model_dir = model_dir
         self.threshold = threshold
         self.factor = factor
@@ -41,9 +40,8 @@ class AlignMTCNN:
         self.margin = margin
         self.image_size = image_size
         self.detect_multiple_faces = detect_multiple_faces
-        self.aligned_dataset = aligned_dataset
 
-    def get_bounding_boxes(self, single=False, img_path=None):
+    def get_bounding_boxes(self, image=None):
         with tf.device('/gpu:0'):
             with tf.Graph().as_default():
                 config = tf.ConfigProto(allow_soft_placement=True)
@@ -114,70 +112,12 @@ class AlignMTCNN:
                                 'onet/conv6-3/onet/conv6-3:0'),
                             feed_dict={
                                 'Placeholder_2:0': img})
-                    if not single:
-                        for filename in os.listdir(self.data_path):
-                            img = cv2.imread(self.data_path+"/"+filename, 1)
-                            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                            start_time = time.time()
-                            bounding_boxes, points = detect_face(img, self.minsize,
-                                                                pnet_fun, rnet_fun, onet_fun,
-                                                                self.threshold, self.factor)
-                            self.process_bounding_boxes(img, bounding_boxes, nrof_successfully_aligned, filename)
-                            
-                    else:
-                        img = cv2.imread(img_path, 1)
-                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                        start_time = time.time()
-                        bounding_boxes, points = detect_face(img, self.minsize,
+                    
+                    bounding_boxes, points = detect_face(image, self.minsize,
                                                             pnet_fun, rnet_fun, onet_fun,
                                                             self.threshold, self.factor)
-                        #print(points)
-                        self.process_bounding_boxes(img, bounding_boxes, nrof_successfully_aligned, img_path)
-
-    def process_bounding_boxes(self, img, bounding_boxes, nrof_successfully_aligned, filename):
-        nrof_faces = bounding_boxes.shape[0]
-        print("No. of faces detected: {}".format(nrof_faces))
-
-        if nrof_faces>0:
-            det = bounding_boxes[:,0:4]
-            det_arr = []
-            img_size = np.asarray(img.shape)[0:2]
-            if nrof_faces>1:
-                if self.detect_multiple_faces:
-                    for i in range(nrof_faces):
-                        det_arr.append(np.squeeze(det[i]))
-                else:
-                    bounding_box_size = (det[:,2]-det[:,0])*(det[:,3]-det[:,1])
-                    img_center = img_size / 2
-                    offsets = np.vstack([ (det[:,0]+det[:,2])/2-img_center[1], (det[:,1]+det[:,3])/2-img_center[0] ])
-                    offset_dist_squared = np.sum(np.power(offsets,2.0),0)
-                    index = np.argmax(bounding_box_size-offset_dist_squared*2.0) # some extra weight on the centering
-                    det_arr.append(det[index,:])
-            else:
-                det_arr.append(np.squeeze(det))
-
-            for i, det in enumerate(det_arr):
-                det = np.squeeze(det)
-                bb = np.zeros(4, dtype=np.int32)
-                bb[0] = np.maximum(det[0]-self.margin/2, 0)
-                bb[1] = np.maximum(det[1]-self.margin/2, 0)
-                bb[2] = np.minimum(det[2]+self.margin/2, img_size[1])
-                bb[3] = np.minimum(det[3]+self.margin/2, img_size[0])
-                cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
-                scaled = misc.imresize(cropped, (self.image_size, self.image_size), interp='bilinear')
-                nrof_successfully_aligned += 1
-                filename_base, file_extension = os.path.splitext(filename)
-                if self.detect_multiple_faces:
-                    output_filename_n = "{}_{}{}".format(filename_base, i, file_extension)
-                else:
-                    output_filename_n = "{}{}".format(filename_base, file_extension)
-                misc.imsave(self.aligned_dataset+"/"+output_filename_n, scaled)
-                #text_file.write('%s %d %d %d %d\n' % (output_filename_n, bb[0], bb[1], bb[2], bb[3]))
-        else:
-            print('Unable to align "%s"' % image_path)
-            #text_file.write('%s\n' % (output_filename))
-
+                    return bounding_boxes, points
 
 if __name__ == '__main__':
-    alignMTCNN = AlignMTCNN('people', aligned_dataset='aligned_dataset')
+    alignMTCNN = AlignMTCNN('people')
     alignMTCNN.get_bounding_boxes()

@@ -1,0 +1,7 @@
+mtcnn_model
+model
+*.pickle
+*.jpg
+*png
+aligned_dataset
+people
