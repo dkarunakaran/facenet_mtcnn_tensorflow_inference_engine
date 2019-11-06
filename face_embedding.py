@@ -58,6 +58,8 @@ class FaceEmbedding:
                             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                             bounding_boxes, points = self.alignMTCNN.get_bounding_boxes(image=img)
                             faces = self.get_faces(img, bounding_boxes, points, filename)
+                            if(len(faces)==0):
+                                continue
                             extracted.append(faces)
                         with open('extracted_embeddings.pickle','wb') as f:
                             pickle.dump(extracted,f)
